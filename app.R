@@ -17,7 +17,7 @@ library(jsonlite)
 library(htmltools)
 
 
-# ---- Theme ------------------------------------------------------------------
+# Theme
 
 theme_restless <- bs_theme(
   version    = 5,
@@ -33,12 +33,12 @@ theme_restless <- bs_theme(
 )
 
 
-# ---- UI ---------------------------------------------------------------------
+# UI
 
 ui <- page_sidebar(
   theme = theme_restless,
   window_title = "Restless Earth",
-
+  
   title = tags$div(
     style = "display: flex; align-items: baseline; gap: 14px; padding: 4px 0;",
     tags$span("RESTLESS EARTH",
@@ -46,11 +46,11 @@ ui <- page_sidebar(
     tags$span("live natural events from NASA EONET",
               style = "font-size: 12px; opacity: 0.55; letter-spacing: 0.5px;")
   ),
-
+  
   sidebar = sidebar(
     width = 310,
     bg = "#0F1419",
-
+    
     # Pulse card
     div(
       style = "background: #161B22; border: 1px solid #262D35; border-radius: 10px; padding: 18px 16px; margin-bottom: 18px;",
@@ -64,35 +64,35 @@ ui <- page_sidebar(
           tagAppendAttributes(style = "font-size: 12px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 6px; display: block;")
       ),
       div(style = "font-size: 10px; opacity: 0.4; text-align: center; margin-top: 4px;",
-          "vs. 30-day baseline (100 = average)")
+          "7-day trend vs year-long norm")
     ),
-
+    
     sliderInput("days", "Days to show",
-                min = 1, max = 60, value = 30, step = 1),
-
+                min = 1, max = 365, value = 30, step = 1),
+    
     selectInput("status", "Event status",
                 choices = c("Open"   = "open",
                             "Closed" = "closed",
                             "All"    = "all"),
                 selected = "open"),
-
+    
     uiOutput("category_filter_ui"),
-
+    
     actionButton("refresh", "↻  Refresh from NASA",
                  class = "btn-sm",
                  style = "margin-top: 10px; background: transparent; border: 1px solid #262D35; color: #E8EAED; width: 100%;"),
-
+    
     div(style = "font-size: 10px; opacity: 0.45; margin-top: 10px; text-align: center;",
         textOutput("last_fetched")),
-
+    
     div(style = "font-size: 10px; opacity: 0.4; margin-top: auto; padding-top: 16px; border-top: 1px solid #262D35; text-align: center;",
         HTML("Data: <a href='https://eonet.gsfc.nasa.gov' target='_blank' style='color: #D85A30;'>NASA EONET v3</a>"))
   ),
-
+  
   # Main body
   div(
     style = "display: grid; grid-template-rows: auto auto; gap: 14px;",
-
+    
     # Map card
     div(
       style = "background: #161B22; border: 1px solid #262D35; border-radius: 10px; overflow: hidden;",
@@ -100,11 +100,11 @@ ui <- page_sidebar(
           "World map"),
       leafletOutput("map", height = 520)
     ),
-
+    
     # Timeline + summary row
     div(
       style = "display: grid; grid-template-columns: 2fr 1fr; gap: 14px;",
-
+      
       # Timeline card
       div(
         style = "background: #161B22; border: 1px solid #262D35; border-radius: 10px; padding: 10px 14px 14px;",
@@ -112,7 +112,7 @@ ui <- page_sidebar(
             "Events over time"),
         plotOutput("timeline", height = 240)
       ),
-
+      
       # Summary card
       div(
         style = "background: #161B22; border: 1px solid #262D35; border-radius: 10px; padding: 10px 14px 14px;",
@@ -125,31 +125,31 @@ ui <- page_sidebar(
 )
 
 
-# ---- Server -----------------------------------------------------------------
+# Server
 
 server <- function(input, output, session) {
-
+  
   events_raw      <- reactiveVal(empty_events_tbl())
   last_fetch_time <- reactiveVal(NULL)
-
+  
   do_fetch <- function() {
     withProgress(message = "Fetching from NASA EONET...", value = 0.3, {
-      data <- fetch_eonet_events(status = "all", days = 60)
+      data <- fetch_eonet_events(status = "all", days = 365)
       events_raw(data)
       last_fetch_time(Sys.time())
       incProgress(1)
     })
   }
-
+  
   # Initial fetch at session start
   do_fetch()
-
+  
   # Manual refresh — clears cache first
   observeEvent(input$refresh, {
     clear_eonet_cache()
     do_fetch()
   })
-
+  
   # Category filter built from data
   output$category_filter_ui <- renderUI({
     df <- events_raw()
@@ -158,62 +158,64 @@ server <- function(input, output, session) {
                        choices = cats,
                        selected = cats)
   })
-
+  
   events_filtered <- reactive({
     df <- events_raw()
     if (nrow(df) == 0) return(df)
-
+    
     cutoff <- Sys.Date() - input$days
     df <- df |> filter(as.Date(date) >= cutoff)
-
+    
     df <- switch(input$status,
                  "open"   = df |> filter(!closed),
                  "closed" = df |> filter(closed),
                  df)
-
+    
     # Categories: NULL during the brief initial render, then populated.
     # NULL means pre-init (show everything); empty vector means user unchecked all.
     if (!is.null(input$categories)) {
       df <- df |> filter(category %in% input$categories)
     }
-
+    
     df
   })
-
+  
+  # Pulse uses the full dataset (not the filtered view) so it's a stable
+  # reading of Earth, independent of what the user has toggled off.
   pulse <- reactive({
-    compute_pulse_index(events_filtered(), baseline_days = 30)
+    compute_pulse_index(events_raw())
   })
-
+  
   output$pulse_value <- renderText({
     p <- pulse()$pulse
     if (is.na(p)) "—" else as.character(p)
   })
-
+  
   output$pulse_verdict <- renderText({
     pulse_verdict(pulse()$pulse)
   })
-
+  
   output$last_fetched <- renderText({
     t <- last_fetch_time()
     if (is.null(t)) "" else paste("Updated:", format(t, "%H:%M:%S %Z"))
   })
-
-  # ---- Map ----
+  
+  # Map
   output$map <- renderLeaflet({
     leaflet(options = leafletOptions(worldCopyJump = TRUE, minZoom = 2)) |>
       addProviderTiles("CartoDB.DarkMatter") |>
       setView(lng = 10, lat = 25, zoom = 2)
   })
-
+  
   observe({
     df <- events_filtered()
     proxy <- leafletProxy("map") |>
       clearMarkers() |>
       clearMarkerClusters() |>
       clearControls()
-
+    
     if (nrow(df) == 0) return()
-
+    
     df <- df |>
       mutate(
         color = category_color(category),
@@ -235,7 +237,7 @@ server <- function(input, output, session) {
                  "")
         )
       )
-
+    
     proxy |>
       addCircleMarkers(
         data         = df,
@@ -257,28 +259,28 @@ server <- function(input, output, session) {
         title    = NULL
       )
   })
-
-  # ---- Timeline ----
+  
+  # Timeline
   output$timeline <- renderPlot({
     df <- events_filtered()
     bg <- "#161B22"
-
+    
     blank_plot <- ggplot() +
       annotate("text", x = 0, y = 0, label = "No events in this window",
                color = "#666", size = 4, family = "sans") +
       theme_void() +
       theme(plot.background = element_rect(fill = bg, color = NA),
             panel.background = element_rect(fill = bg, color = NA))
-
+    
     if (nrow(df) == 0) return(blank_plot)
-
+    
     daily <- df |>
       mutate(day = as.Date(date)) |>
       count(day, category)
-
+    
     present_cats <- intersect(names(CATEGORY_COLORS), unique(daily$category))
     cols <- CATEGORY_COLORS[present_cats]
-
+    
     ggplot(daily, aes(x = day, y = n, fill = category)) +
       geom_col(position = "stack", width = 0.9) +
       scale_fill_manual(values = cols, breaks = present_cats) +
@@ -301,27 +303,27 @@ server <- function(input, output, session) {
       ) +
       guides(fill = guide_legend(nrow = 2, byrow = TRUE))
   })
-
-  # ---- Category summary ----
+  
+  # Category summary
   output$cat_summary <- renderUI({
     df <- events_filtered()
     if (nrow(df) == 0) {
       return(div(style = "opacity: 0.5; font-size: 13px; padding: 20px 0;",
                  "No events in this window"))
     }
-
+    
     counts <- df |>
       count(category, sort = TRUE, name = "n") |>
       mutate(pct = n / sum(n))
-
+    
     max_n <- max(counts$n)
-
+    
     rows <- lapply(seq_len(nrow(counts)), function(i) {
       cat <- counts$category[i]
       n   <- counts$n[i]
       col <- category_color(cat)
       bar_w <- round(100 * n / max_n)
-
+      
       div(
         style = "margin-bottom: 10px;",
         div(style = "display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px;",
@@ -331,12 +333,12 @@ server <- function(input, output, session) {
             div(style = sprintf("height: 100%%; width: %d%%; background: %s;", bar_w, col)))
       )
     })
-
+    
     div(style = "padding-top: 4px;", rows)
   })
 }
 
 
-# ---- Run --------------------------------------------------------------------
+# Run
 
 shinyApp(ui, server)
