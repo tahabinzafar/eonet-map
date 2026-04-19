@@ -37,11 +37,11 @@ theme_restless <- bs_theme(
 
 ui <- page_sidebar(
   theme = theme_restless,
-  window_title = "Restless Earth",
+  window_title = "Earth Event Tracker",
   
   title = tags$div(
     style = "display: flex; align-items: baseline; gap: 14px; padding: 4px 0;",
-    tags$span("RESTLESS EARTH",
+    tags$span("Earth Event Tracker",
               style = "letter-spacing: 3px; font-weight: 600; font-size: 18px;"),
     tags$span("live natural events from NASA EONET",
               style = "font-size: 12px; opacity: 0.55; letter-spacing: 0.5px;")
@@ -64,11 +64,14 @@ ui <- page_sidebar(
           tagAppendAttributes(style = "font-size: 12px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 6px; display: block;")
       ),
       div(style = "font-size: 10px; opacity: 0.4; text-align: center; margin-top: 4px;",
-          "7-day trend vs year-long norm")
+          textOutput("pulse_subtitle", inline = TRUE))
     ),
     
     sliderInput("days", "Days to show",
                 min = 1, max = 365, value = 30, step = 1),
+    
+    sliderInput("recent_window", "Pulse: recent window (days)",
+                min = 3, max = 60, value = 7, step = 1),
     
     selectInput("status", "Event status",
                 choices = c("Open"   = "open",
@@ -159,6 +162,10 @@ server <- function(input, output, session) {
                        selected = cats)
   })
   
+  output$pulse_subtitle <- renderText({
+    sprintf("%d-day trend vs year-long norm", input$recent_window)
+  })
+  
   events_filtered <- reactive({
     df <- events_raw()
     if (nrow(df) == 0) return(df)
@@ -183,7 +190,7 @@ server <- function(input, output, session) {
   # Pulse uses the full dataset (not the filtered view) so it's a stable
   # reading of Earth, independent of what the user has toggled off.
   pulse <- reactive({
-    compute_pulse_index(events_raw())
+    compute_pulse_index(events_raw(), recent_window = input$recent_window)
   })
   
   output$pulse_value <- renderText({
