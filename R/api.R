@@ -1,3 +1,4 @@
+
 # EONET API fetcher
 #
 # Single source of truth for hitting NASA's EONET v3 endpoint and
@@ -125,3 +126,4 @@ clear_eonet_cache <- function() {
   rm(list = ls(.eonet_cache), envir = .eonet_cache)
   invisible(NULL)
 }
+

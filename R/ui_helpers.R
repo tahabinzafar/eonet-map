@@ -22,3 +22,4 @@ category_color <- function(cat) {
   out[is.na(out)] <- "#888780"
   unname(out)
 }
+
