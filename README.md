@@ -15,7 +15,7 @@ Live natural events from NASA's [EONET](https://eonet.gsfc.nasa.gov) on an inter
 ## Requirements
 
 -   R 4.1 or newer (needs the native `|>` pipe)
--   An internet connection (to hit EONET and load Google Fonts)
+-   An internet connection (to hit EONET)
 
 ## Run it
 
