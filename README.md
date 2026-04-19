@@ -7,13 +7,11 @@ Live natural events from NASA's [EONET](https://eonet.gsfc.nasa.gov) on an inter
 ## What you get
 
 -   **World map** with every natural event (wildfires, storms, volcanoes, floods, ice, landslides, more) pinned at its location, colour-coded by category, clustered when zoomed out. Click any marker for details and a source link.
--   **Planetary Pulse Index** in the sidebar: a single number where 100 is an average week, 140 means 40% busier than average, 75 means 25% quieter. A short verdict and plain-English description sit underneath so you know what the number means at a glance.
+-   **Planetary Pulse Index** in the sidebar: a single number where 100 is an average week, 140 means 40% busier than average, 75 means 25% quieter.
 -   **Filters** for category, time window (1 to 365 days), event status (open / closed / all), and a slider to set the pulse's recent window (7 to 63 days, in weekly steps).
 -   **Timeline** stacked by category so you can see which hazards are driving the activity.
 -   **Category breakdown** with a mini bar chart.
-
-All client-side. No API key, no database, 10-minute cache so you don't hammer NASA's servers.
-
+  
 ## Requirements
 
 -   R 4.1 or newer (needs the native `|>` pipe)
